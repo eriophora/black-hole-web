@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gargantua — Real-Time Kerr Black Hole Simulator (WebGPU)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: #f2e8d8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #black-hole-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      outline: none;
+      touch-action: none;
+      background: #000;
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #0c0d14 0%, #000 72%);
+      z-index: 20;
+      padding: 24px;
+      text-align: center;
+    }
+    #error-overlay {
+      display: none;
+    }
+    .card {
+      max-width: 520px;
+      background: rgba(14, 16, 24, 0.92);
+      border: 1px solid rgba(255, 200, 130, 0.25);
+      border-radius: 12px;
+      padding: 28px 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #ffd7a0;
+      margin-bottom: 10px;
+      letter-spacing: 0.02em;
+    }
+    p {
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: #c7cedd;
+    }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 215, 160, 0.18);
+      border-top-color: #ffd7a0;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 18px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .hint {
+      margin-top: 14px;
+      font-size: 0.82rem;
+      color: #8f99ae;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="black-hole-canvas" tabindex="0"></canvas>
+
+  <div id="loading-overlay" class="overlay">
+    <div class="card">
+      <div class="spinner"></div>
+      <h1>Initializing Gargantua (WebGPU)</h1>
+      <p>Compiling Kerr-Schild geodesic shaders, 22,000-star catalog, and volumetric accretion disk...</p>
+      <p class="hint">Requires a WebGPU-enabled browser (Chrome, Edge, Brave, or Safari 18+)</p>
+    </div>
+  </div>
+
+  <div id="error-overlay" class="overlay">
+    <div class="card">
+      <h1>WebGPU Unavailable</h1>
+      <p id="error-message">Your browser does not appear to support WebGPU.</p>
+      <p class="hint">Try opening this page in desktop Chrome, Edge, Brave, or Safari 18+ with hardware acceleration enabled.</p>
+    </div>
+  </div>
+
+  <script type="module">
+    const showErr = (msg) => {
+      document.getElementById("loading-overlay").style.display = "none";
+      document.getElementById("error-message").textContent = msg;
+      document.getElementById("error-overlay").style.display = "flex";
+    };
+
+    if (!("gpu" in navigator)) {
+      showErr("WebGPU (navigator.gpu) is not available in this browser.");
+    } else {
+      try {
+        const mod = await import("./pkg/black_hole_web.js");
+        await mod.default();
+      } catch (err) {
+        // winit spawn_app throws an internal control-flow exception in wasm-bindgen; ignore it
+        const msg = String(err || "");
+        if (!msg.includes("Using exceptions for control flow")) {
+          console.error(err);
+          showErr("Failed to start simulator: " + msg);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
