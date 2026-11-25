@@ -21,7 +21,7 @@ impl Default for SimParams {
             exposure: 1.0,
             bloom_intensity: 0.42,
             star_brightness: 1.0,
-            render_scale: 0.75,
+            render_scale: 0.65,
             photon_ssaa: true,
             planet_enabled: true,
             planet_paused: false,
@@ -112,7 +112,7 @@ pub fn draw_hud(
                             .fixed_decimals(1),
                     );
                     ui.add(
-                        egui::Slider::new(&mut params.render_scale, 0.40..=1.00)
+                        egui::Slider::new(&mut params.render_scale, 0.35..=1.00)
                             .text("Scale")
                             .fixed_decimals(2),
                     );
@@ -125,7 +125,7 @@ pub fn draw_hud(
                         ui.checkbox(&mut params.disk_enabled, "Disk");
                         ui.checkbox(&mut params.doppler_enabled, "Doppler");
                     });
-                    ui.checkbox(&mut params.photon_ssaa, "Photon Ring 5x SSAA");
+                    ui.checkbox(&mut params.photon_ssaa, "Photon Ring 3x SSAA");
 
                     ui.horizontal(|ui| {
                         if ui.button("Reset [R]").clicked() {

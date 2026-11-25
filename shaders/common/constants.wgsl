@@ -35,7 +35,7 @@ fn has_flag(flags: u32, bit: u32) -> bool {
 const PI: f32 = 3.14159265359;
 const TAU: f32 = 6.28318530718;
 const INV_PI: f32 = 0.31830988618;
-const R_ESCAPE_TAIL: f32 = 75.0;
+const R_ESCAPE_TAIL: f32 = 38.0;
 
 // Covector-vector contraction p_mu u^mu.
 fn dot4_cov_con(p: vec4<f32>, u: vec4<f32>) -> f32 {

@@ -66,7 +66,7 @@ fn trace_geodesic(
         omega_isco = sqrt_m / max(pow(r_isco, 1.5) + a * sqrt_m, 1e-4);
     }
 
-    for (var step = 0u; step < 640u; step = step + 1u) {
+    for (var step = 0u; step < 360u; step = step + 1u) {
         let h = ks_adaptive_step_size(x, k1, u, r_plus, step, jitter_01);
         let res = rk4_step(x, p, k1, h, mass, a);
         steps += 1u;
@@ -148,7 +148,7 @@ fn trace_geodesic(
         k1 = GeodesicRhs(res.dx_next, res.dp_next, res.r_next);
         r_curr = res.r_next;
 
-        if state.transmittance < 1e-3 {
+        if state.transmittance < 0.012 {
             break;
         }
         if !(r_curr >= 0.0 && r_curr < 1e20) {

@@ -127,8 +127,6 @@ fn eval_disk_step_fast(
     let n1 = textureSampleLevel(disk_noise_tex, disk_noise_samp, uvw, 0.0);
     let uvw2 = uvw * vec3<f32>(2.5, 2.5, 1.9) + vec3<f32>(0.37, 0.61, 0.19);
     let n2_raw = textureSampleLevel(disk_noise_tex, disk_noise_samp, uvw2, 0.0);
-    let uvw3 = uvw * vec3<f32>(5.2, 5.2, 3.4) + vec3<f32>(0.73, 0.19, 0.53);
-    let n3_raw = textureSampleLevel(disk_noise_tex, disk_noise_samp, uvw3, 0.0);
 
     // Analytic radial pixel-footprint band-limiting (lens_mag == 1.0 in direct view n_half <= 0.85)
     let pixel_ang = (2.0 * tan(0.5 * uniforms.fov_y_rad)) / f32(max(uniforms.resolution.y, 1u));
@@ -140,9 +138,7 @@ fn eval_disk_step_fast(
     let nyq_mid   = exp(-0.5 * pow((38.0 * sigma_lnr) / 1.1, 2.0));
     let nyq_fine  = exp(-0.5 * pow((86.0 * sigma_lnr) / 1.1, 2.0));
     let nyq_n2    = exp(-0.5 * pow((26.0 * sigma_lnr), 2.0));
-    let nyq_n3    = exp(-0.5 * pow((58.0 * sigma_lnr), 2.0));
     let n2 = mix(vec4<f32>(0.5), n2_raw, nyq_n2);
-    let n3 = mix(vec4<f32>(0.5), n3_raw, nyq_n3);
 
     // Multi-scale concentric ln(r) ringlets broken organically by sheared turbulence (zero phi seam).
     // Energy-preserving band-limiting ensures demagnified n>=2 photon sub-rings keep true integrated disk radiance.
@@ -162,10 +158,10 @@ fn eval_disk_step_fast(
     // Feathery wispy outer edge modulation so strands dissolve gracefully into space
     let outer_wisp = mix(1.0, smoothstep(0.18, 0.78, n1.g * 0.55 + n2.g * 0.45), smoothstep(0.42, 0.92, r_norm));
 
-    // Component A: Hot incandescent plasma density with crisp fine wispy filaments
+    // Component A: Hot incandescent plasma density with crisp fine wispy filaments (reuses n2.a 64-period channel)
     let inner_flare = 0.68 + 5.2 * exp(-pow((rho - (r_in + 0.65)) / 1.75, 2.0));
-    let fine_wisps = 0.55 + 0.95 * pow(clamp(1.0 - abs(2.0 * n3.g - 1.0), 0.0, 1.0), 1.6);
-    let fil_plasma = pow(mix(n1.g, n2.g, 0.48), 1.95) * (0.42 + 1.20 * pow(n2.a, 1.30)) * fine_wisps;
+    let fine_wisps = 0.58 + 0.90 * pow(clamp(1.0 - abs(2.0 * n2.a - 1.0), 0.0, 1.0), 1.5);
+    let fil_plasma = pow(mix(n1.g, n2.g, 0.48), 1.95) * (0.44 + 1.16 * pow(n2.a, 1.25)) * fine_wisps;
     let rho_plasma = rad_env * outer_wisp * v_env * ringlets * fil_plasma * inner_flare;
 
     // Component B: Cool high-opacity self-occluding dust lanes (sublimates right at scorching inner rim)
@@ -176,8 +172,8 @@ fn eval_disk_step_fast(
     let dzm = exp(-1.25 * z_norm * z_norm) * smoothstep(2.45, 1.45, abs(z_norm));
     let dzb = exp(-1.25 * zb_n * zb_n) * smoothstep(2.45, 1.45, abs(zb_n));
     let dust_z_env = (1.0 / 6.0) * (dza + 4.0 * dzm + dzb);
-    let dust_lane = smoothstep(0.20, 0.68, (1.0 - band_macro * 0.72) * 0.48 + n1.b * 0.58 + (n3.b - 0.5) * 0.22);
-    let dust_clump = pow(smoothstep(0.16, 0.76, n1.b * 0.52 + n2.r * 0.34 + n3.r * 0.14), 1.18);
+    let dust_lane = smoothstep(0.20, 0.68, (1.0 - band_macro * 0.72) * 0.48 + n1.b * 0.58 + (n2.b - 0.5) * 0.20);
+    let dust_clump = pow(smoothstep(0.16, 0.76, n1.b * 0.56 + n2.r * 0.44), 1.18);
     let rho_dust = dust_rad_env * outer_wisp * dust_z_env * dust_lane * dust_clump * 1.95 * dust_sub_atten;
 
     if rho_plasma < 1e-4 && rho_dust < 0.01 {
@@ -194,7 +190,7 @@ fn eval_disk_step_fast(
     if rho_plasma >= 1e-4 {
         let t_rad = pow(r_in / max(rho, r_in), 0.76);
         let t_peak = clamp(uniforms.disk_temp_peak_k * 0.82, 4200.0, 5800.0);
-        let t_emit = mix(1450.0, t_peak, t_rad) * mix(0.78, 1.32, n1.g * 0.7 + n3.g * 0.3);
+        let t_emit = mix(1450.0, t_peak, t_rad) * mix(0.78, 1.32, n1.g * 0.72 + n2.g * 0.28);
         let chroma = gargantua_emission_chroma(t_emit, g, uniforms);
 
         let plasma_gain: f32 = 3.5;
@@ -205,32 +201,14 @@ fn eval_disk_step_fast(
     var j_dust = vec3<f32>(0.0);
     var alpha_dust_rgb = vec3<f32>(0.0);
     if rho_dust > 0.01 {
-        // 2-3 tap inward radial core self-shadowing
-        let d_ln1 = log(max(rho - 0.55, r_in) / max(r_in, 0.5)) - ln_r;
-        let d_ln2 = log(max(rho - 1.35, r_in) / max(r_in, 0.5)) - ln_r;
-        let occ_1 = textureSampleLevel(
+        // Fast single inward radial core self-shadowing tap (cuts 3D texture reads in half on WebGPU)
+        let d_ln = log(max(rho - 1.05, r_in) / max(r_in, 0.5)) - ln_r;
+        let occ = textureSampleLevel(
             disk_noise_tex,
             disk_noise_samp,
-            uvw + vec3<f32>(3.2 * d_ln1, 0.0, -0.10 * z_norm),
+            uvw + vec3<f32>(3.2 * d_ln, 0.0, -0.15 * z_norm),
             0.0,
         ).b;
-        let occ_2 = textureSampleLevel(
-            disk_noise_tex,
-            disk_noise_samp,
-            uvw + vec3<f32>(3.2 * d_ln2, 0.0, -0.20 * z_norm),
-            0.0,
-        ).b;
-        var occ = 0.62 * occ_1 + 0.38 * occ_2;
-        if rho > r_in + 3.5 {
-            let d_ln3 = log(max(rho - 2.40, r_in) / max(r_in, 0.5)) - ln_r;
-            let occ_3 = textureSampleLevel(
-                disk_noise_tex,
-                disk_noise_samp,
-                uvw + vec3<f32>(3.2 * d_ln3, 0.0, -0.30 * z_norm),
-                0.0,
-            ).b;
-            occ = 0.55 * occ_1 + 0.30 * occ_2 + 0.15 * occ_3;
-        }
         let shadow_inward = exp(-4.1 * occ);
         alpha_dust_rgb = 4.9 * rho_dust * vec3<f32>(0.70, 1.0, 1.48);
         j_dust = (0.020 * shadow_inward * pow(clamp(g, 0.15, 2.0), 1.5))

@@ -51,7 +51,7 @@ mod web_app {
     }
 
     fn scaled_dims(surface_w: u32, surface_h: u32, scale: f32) -> (u32, u32) {
-        let s = scale.clamp(0.40, 1.00);
+        let s = scale.clamp(0.35, 1.00);
         let rw = ((surface_w as f32 * s).round() as u32).clamp(64, 3840);
         let rh = ((surface_h as f32 * s).round() as u32).clamp(64, 2160);
         (rw, rh)

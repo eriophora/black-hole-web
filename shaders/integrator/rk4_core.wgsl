@@ -23,21 +23,21 @@ fn ks_adaptive_step_size(
     let mass = u.bh_mass;
     let t_ph = smoothstep(1.2 * r_plus, 5.0 * mass, rhs.r);
     let is_escaping = dot(x.yzw, rhs.dx.yzw) > 0.0;
-    let t_out = select(0.0, smoothstep(5.0 * mass, 12.0 * mass, rhs.r), is_escaping);
-    let t_in_far = select(smoothstep(9.0 * mass, 20.0 * mass, rhs.r), 0.0, is_escaping);
-    let cr_base = mix(0.025, 0.080, t_ph);
-    let cr = mix(mix(cr_base, 0.18, t_in_far), 0.34, t_out);
+    let t_out = select(0.0, smoothstep(5.0 * mass, 11.0 * mass, rhs.r), is_escaping);
+    let t_in_far = select(smoothstep(8.5 * mass, 18.0 * mass, rhs.r), 0.0, is_escaping);
+    let cr_base = mix(0.042, 0.115, t_ph);
+    let cr = mix(mix(cr_base, 0.24, t_in_far), 0.45, t_out);
     let dp_mag = length(rhs.dp.yzw);
-    var h_curv = min(cr * rhs.r, 0.20 / max(dp_mag, 0.02));
-    let h_max_base = mix(0.08, 0.18, t_in_far);
-    let h_max = max(mix(h_max_base, 0.34, t_out) * rhs.r, 0.025 * mass);
+    var h_curv = min(cr * rhs.r, 0.26 / max(dp_mag, 0.02));
+    let h_max_base = mix(0.115, 0.24, t_in_far);
+    let h_max = max(mix(h_max_base, 0.45, t_out) * rhs.r, 0.038 * mass);
 
     if has_flag(u.flags, FLAG_ENABLE_DISK)
-        && rhs.r >= u.disk_r_in * 0.80
-        && rhs.r <= u.disk_r_out * 1.15
+        && rhs.r >= u.disk_r_in * 0.85
+        && rhs.r <= u.disk_r_out * 1.12
     {
-        let t_z = smoothstep(1.2 * u.disk_half_height, 4.0 * u.disk_half_height, abs(x.w));
-        let h_disk = clamp(0.036 * rhs.r, max(0.38 * u.disk_half_height, 0.13 * mass), 0.28 * mass);
+        let t_z = smoothstep(1.2 * u.disk_half_height, 3.6 * u.disk_half_height, abs(x.w));
+        let h_disk = clamp(0.052 * rhs.r, max(0.55 * u.disk_half_height, 0.19 * mass), 0.38 * mass);
         var h_slab = mix(h_disk, h_max, t_z);
         if x.w * rhs.dx.w < 0.0 && abs(x.w) > 1.2 * u.disk_half_height {
             let h_vert = (abs(x.w) - 0.8 * u.disk_half_height) / max(abs(rhs.dx.w), 0.15);

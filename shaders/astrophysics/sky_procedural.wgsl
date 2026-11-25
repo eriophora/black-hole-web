@@ -257,8 +257,10 @@ fn procedural_star_layer_cube(
             if h.x < density_thresh {
                 continue;
             }
-            let su = tan(pi_over_4 * (-1.0 + (f32(cell.ix) + 0.5 + (h.y - 0.5) * 0.68) * delta));
-            let sv = tan(pi_over_4 * (-1.0 + (f32(cell.iy) + 0.5 + (h.z - 0.5) * 0.68) * delta));
+            let xu = -1.0 + (f32(cell.ix) + 0.5 + (h.y - 0.5) * 0.68) * delta;
+            let xv = -1.0 + (f32(cell.iy) + 0.5 + (h.z - 0.5) * 0.68) * delta;
+            let su = xu * (0.785398 + 0.214602 * xu * xu);
+            let sv = xv * (0.785398 + 0.214602 * xv * xv);
             var b = base_basis;
             if cell.face != face {
                 b = cube_face_basis(cell.face);
@@ -274,8 +276,7 @@ fn procedural_star_layer_cube(
                 let flux = flux_scale * pow(frac_x, 2.4) * g_boost;
                 let t_emit = mix(3400.0, 16000.0, h.y * h.y);
                 let t_obs = t_emit * g_inf;
-                let norm_550 = max(planck_norm_scalar(550.0, t_emit), 0.05);
-                accum += (flux * w / norm_550) * blackbody_rgb(t_obs);
+                accum += (flux * w) * normalize_luma(blackbody_rgb(t_obs));
             }
         }
     }
@@ -339,8 +340,7 @@ fn eval_sky_anisotropic_gr(
         );
 
         let t_gal = mix(5400.0, 4100.0, bulge) * g_inf;
-        let norm_gal = max(planck_norm_scalar(550.0, mix(5400.0, 4100.0, bulge)), 0.05);
-        sky_rgb += (blackbody_rgb(t_gal) / norm_gal) * starcloud * ext;
+        sky_rgb += normalize_luma(blackbody_rgb(t_gal)) * starcloud * ext;
 
         let neb_mask = band_gate * exp(-lat * lat * 48.0) * smoothstep(0.58, 0.84, n_large * n_detail * 2.0);
         let neb_col = mix(vec3<f32>(0.00022, 0.00006, 0.00011), vec3<f32>(0.00006, 0.00014, 0.00025), n_detail);
@@ -372,13 +372,12 @@ fn eval_sky_anisotropic_gr(
         if w > 0.0 {
             let t_emit = st.dir_temp.w;
             let t_obs = t_emit * g_inf;
-            let norm_550 = max(planck_norm_scalar(550.0, t_emit), 0.05);
-            let amp = 1.35 * star_gain * g_boost * pow(flux, 0.82) * w / norm_550;
-            sky_rgb += blackbody_rgb(t_obs) * st.flux_meta.yzw * amp;
+            let amp = 1.35 * star_gain * g_boost * pow(flux, 0.82) * w;
+            sky_rgb += normalize_luma(blackbody_rgb(t_obs)) * st.flux_meta.yzw * amp;
         }
     }
 
-    // 3. Zero-miss Tangent-Warped Cube-Face 3x3 procedural micro-stars
+    // 3. Zero-miss Tangent-Warped Cube-Face 3x3 procedural micro-stars (single crisp layer for WebGPU perf)
     let inv_pi_2: f32 = 2.0 / PI;
     let s01_u = clamp(0.5 + inv_pi_2 * atan(cube_uv.u_raw), 0.0, 0.999999);
     let s01_v = clamp(0.5 + inv_pi_2 * atan(cube_uv.v_raw), 0.0, 0.999999);
@@ -390,14 +389,7 @@ fn eval_sky_anisotropic_gr(
     if w1 > 1e-4 {
         sky_rgb += w1 * procedural_star_layer_cube(
             dir, cube_uv.face, s01_u, s01_v, 192, 100,
-            sigma_px0, t1, t2, px_a, px_b, px_c, lambda_max, g_inf, 0.86, 0.22 * star_gain,
-        );
-    }
-    let micro_w = 1.0 - smoothstep(0.0035, 0.011, max_j);
-    if micro_w > 1e-4 {
-        sky_rgb += micro_w * procedural_star_layer_cube(
-            dir, cube_uv.face, s01_u, s01_v, 384, 200,
-            sigma_px0, t1, t2, px_a, px_b, px_c, lambda_max, g_inf, 0.90, 0.08 * star_gain,
+            sigma_px0, t1, t2, px_a, px_b, px_c, lambda_max, g_inf, 0.85, 0.25 * star_gain,
         );
     }
 
